@@ -6,12 +6,14 @@ import {
 import { PrismaService } from 'src/prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { WalletService } from 'src/wallet/wallet.service';
+import { JwtService } from '@nestjs/jwt';
 
 @Injectable()
 export class AuthService {
   constructor(
     private prisma: PrismaService,
     private walletService: WalletService,
+    private jwtService: JwtService,
   ) {}
 
   async signUp(email: string, password: string, name: string) {
@@ -56,7 +58,9 @@ export class AuthService {
       );
     }
 
-    const { password: _, ...safeUser } = user;
-    return safeUser;
+    const payload = { id: user.id, email: user.email };
+    return {
+      accessToken: this.jwtService.sign(payload),
+    };
   }
 }
