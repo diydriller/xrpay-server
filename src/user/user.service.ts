@@ -14,7 +14,7 @@ export class UserService {
         name: true,
         createdAt: true,
         updatedAt: true,
-        wallets: {
+        wallet: {
           select: {
             id: true,
             address: true,
