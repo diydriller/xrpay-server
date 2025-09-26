@@ -8,21 +8,44 @@ datasource db {
 }
 
 model User {
-  id        Int       @id @default(autoincrement())
-  email     String    @unique
-  password  String    
-  name      String
-  wallets   Wallet[]  
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id         Int       @id @default(autoincrement())
+  email      String    @unique
+  password   String    
+  name       String
+  wallet     Wallet?   @relation("UserWallet")   
+  walletId   Int?      @unique  
+  payments   Payment[]
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 }
 
 model Wallet {
-  id        Int      @id @default(autoincrement())
-  address   String   @unique
-  publicKey String
-  user      User     @relation(fields: [userId], references: [id])
-  userId    Int
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         Int       @id @default(autoincrement())
+  address    String    @unique
+  publicKey  String
+  privateKey String
+  seed       String
+  user       User?     @relation("UserWallet", fields: [userId], references: [id])
+  userId     Int?      @unique
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
+
+model Payment {
+  id         Int       @id @default(autoincrement())
+  user       User      @relation(fields: [userId], references: [id])
+  userId     Int
+  orderId    String    @unique
+  paymentKey String?   @unique
+  amount     Int
+  currency   String
+  status     PaymentStatus   
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
 }
