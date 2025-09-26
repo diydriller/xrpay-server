@@ -7,6 +7,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { WalletService } from 'src/wallet/wallet.service';
 import { JwtService } from '@nestjs/jwt';
+import { Transactional } from 'src/common/decorator/transaction.decorator';
 
 @Injectable()
 export class AuthService {
@@ -16,6 +17,7 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
+  @Transactional()
   async signUp(email: string, password: string, name: string) {
     const existingUser = await this.prisma.user.findUnique({
       where: { email },
