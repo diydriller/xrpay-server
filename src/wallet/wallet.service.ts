@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   OnModuleDestroy,
   OnModuleInit,
@@ -21,6 +22,7 @@ import { sign as kpSign, deriveKeypair } from 'ripple-keypairs';
 export class WalletService implements OnModuleInit, OnModuleDestroy {
   private client: Client;
   private readonly TRUST_LIMIT = '999999999999999';
+  private readonly logger = new Logger(WalletService.name);
 
   constructor(private prisma: PrismaService) {
     this.client = new Client(process.env.XRPL_NODE_URL!);
@@ -81,7 +83,8 @@ export class WalletService implements OnModuleInit, OnModuleDestroy {
     };
     const prepared = await this.client.autofill(tx);
     const signedTx = userWallet.sign(prepared);
-    await this.client.submitAndWait(signedTx.tx_blob);
+    const result = await this.client.submitAndWait(signedTx.tx_blob);
+    this.logger.log(result);
   }
 
   async sendIOU(
@@ -104,7 +107,8 @@ export class WalletService implements OnModuleInit, OnModuleDestroy {
 
     const prepared = await this.client.autofill(tx);
     const signedTx = senderWallet.sign(prepared);
-    await this.client.submitAndWait(signedTx.tx_blob);
+    const result = await this.client.submitAndWait(signedTx.tx_blob);
+    this.logger.log(result);
   }
 
   async createIOUEscrow(
@@ -139,7 +143,8 @@ export class WalletService implements OnModuleInit, OnModuleDestroy {
     const signature = kpSign(signingData, privateKey);
     const signedTx = { ...toSign, TxnSignature: signature };
     const tx_blob = encode(signedTx);
-    await this.client.submitAndWait(tx_blob);
+    const result = await this.client.submitAndWait(tx_blob);
+    this.logger.log(result);
     return prepared.Sequence;
   }
 
@@ -157,6 +162,7 @@ export class WalletService implements OnModuleInit, OnModuleDestroy {
 
     const prepared = await this.client.autofill(tx);
     const signed = receiverWallet.sign(prepared);
-    await this.client.submitAndWait(signed.tx_blob);
+    const result = await this.client.submitAndWait(signed.tx_blob);
+    this.logger.log(result);
   }
 }
