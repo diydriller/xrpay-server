@@ -11,7 +11,11 @@ import {
   Wallet as XrplWallet,
   TrustSet as TrustSetTx,
   Payment,
+  Transaction,
+  IssuedCurrencyAmount,
 } from 'xrpl';
+import { encodeForSigning, encode } from 'ripple-binary-codec';
+import { sign as kpSign, deriveKeypair } from 'ripple-keypairs';
 
 @Injectable()
 export class WalletService implements OnModuleInit, OnModuleDestroy {
@@ -65,30 +69,6 @@ export class WalletService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
-  async issueIOU(userId: number, amount: number, currency: string) {
-    const savedWallet = await this.prisma.wallet.findUnique({
-      where: { userId: userId },
-      select: {
-        id: true,
-        seed: true,
-      },
-    });
-    if (!savedWallet) {
-      throw new NotFoundException('존재하지 않는 지갑입니다.');
-    }
-
-    const adminWallet = Wallet.fromSeed(process.env.ADMIN_SEED || '');
-    const userWallet = Wallet.fromSeed(savedWallet.seed);
-    await this.setTrust(adminWallet.address, userWallet, currency);
-    await this.sendIOU(
-      adminWallet.address,
-      adminWallet,
-      userWallet.address,
-      currency,
-      amount,
-    );
-  }
-
   async setTrust(issuerAddress: string, userWallet: Wallet, currency: string) {
     const tx: TrustSetTx = {
       TransactionType: 'TrustSet',
@@ -125,5 +105,58 @@ export class WalletService implements OnModuleInit, OnModuleDestroy {
     const prepared = await this.client.autofill(tx);
     const signedTx = senderWallet.sign(prepared);
     await this.client.submitAndWait(signedTx.tx_blob);
+  }
+
+  async createIOUEscrow(
+    issuerAddress: string,
+    senderWallet: Wallet,
+    receiverAddress: string,
+    currency: string,
+    amount: number,
+    finishAfter: number,
+    cancelAfter: number,
+  ) {
+    const tx: Transaction = {
+      TransactionType: 'EscrowCreate',
+      Account: senderWallet.address,
+      Destination: receiverAddress,
+      Amount: {
+        currency: currency,
+        issuer: issuerAddress,
+        value: amount.toString(),
+      } as IssuedCurrencyAmount,
+      FinishAfter: finishAfter,
+      CancelAfter: cancelAfter,
+    };
+
+    const prepared = await this.client.autofill(tx);
+    const toSign = {
+      ...prepared,
+      SigningPubKey: senderWallet.publicKey,
+    };
+    const { privateKey } = deriveKeypair(senderWallet.seed || '');
+    const signingData = encodeForSigning(toSign as any);
+    const signature = kpSign(signingData, privateKey);
+    const signedTx = { ...toSign, TxnSignature: signature };
+    const tx_blob = encode(signedTx);
+    await this.client.submitAndWait(tx_blob);
+    return prepared.Sequence;
+  }
+
+  async finishIOUEscrow(
+    senderAddress: string,
+    receiverWallet: Wallet,
+    offerSequence: number,
+  ) {
+    const tx: Transaction = {
+      TransactionType: 'EscrowFinish',
+      Account: receiverWallet.address,
+      Owner: senderAddress,
+      OfferSequence: offerSequence,
+    };
+
+    const prepared = await this.client.autofill(tx);
+    const signed = receiverWallet.sign(prepared);
+    await this.client.submitAndWait(signed.tx_blob);
   }
 }
