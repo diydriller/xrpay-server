@@ -34,6 +34,41 @@ export class EscrowService {
     await this.finishIOUEscrow(userId, escrowId);
   }
 
+  async getIOUEscrow(page: number, limit: number, userId: number) {
+    const savedWallet = await this.prisma.wallet.findUnique({
+      where: { userId: userId },
+      select: {
+        id: true,
+        address: true,
+      },
+    });
+    if (!savedWallet) {
+      throw new NotFoundException('존재하지 않는 지갑입니다.');
+    }
+
+    const IOUEscrows = await this.prisma.iOUEscrow.findMany({
+      where: {
+        OR: [
+          { senderAddress: savedWallet.address },
+          { receiverAddress: savedWallet.address },
+        ],
+      },
+      orderBy: { createdAt: 'desc' },
+      skip: Math.max(0, (page - 1) * limit),
+      take: Math.max(1, limit),
+    });
+
+    const result = IOUEscrows.map((iouEscrow) => ({
+      isFinished: iouEscrow.status === 'FINISHED',
+      isReceiver: iouEscrow.receiverAddress === savedWallet.address,
+      amount: iouEscrow.amount,
+      currency: iouEscrow.currency,
+      finishAfter: iouEscrow.finishAfter,
+      cancelAfter: iouEscrow.cancelAfter,
+    }));
+    return result;
+  }
+
   private async createIOUEscrow(
     userId: number,
     address: string,

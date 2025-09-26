@@ -1,4 +1,12 @@
-import { Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { EscrowService } from './escrow.service';
 import { RegisterIOUEscrowDto } from './dto/register-iou-escrow.dto';
@@ -23,5 +31,15 @@ export class EscrowController {
   @Post('iou/escrow/finish')
   async settleIOUEscrow(@Body() dto: SettleIOUEscrowDto, @Req() req) {
     return this.escrowService.settleIOUEscrow(dto.escrowId, req.user.userId);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Get('iou/escrow')
+  async getIOUEscrow(
+    @Query('page') page = 1,
+    @Query('limit') limit = 10,
+    @Req() req,
+  ) {
+    return await this.escrowService.getIOUEscrow(page, limit, req.user.userId);
   }
 }
