@@ -44,6 +44,27 @@ model Payment {
   updatedAt  DateTime  @updatedAt
 }
 
+model IOUEscrow {
+  id               Int      @id @default(autoincrement())
+  escrowId         String   @unique
+  offerSequence    Int?     @unique   
+  senderAddress    String
+  receiverAddress  String
+  amount           Int
+  currency         String
+  status           EscrowStatus
+  finishAfter      DateTime
+  cancelAfter      DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+enum EscrowStatus {
+  PENDING
+  FINISHED
+  CANCELED
+}
+
 enum PaymentStatus {
   PENDING
   SUCCESS
