@@ -1,8 +1,13 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { WalletService } from 'src/wallet/wallet.service';
 import { v4 as uuid } from 'uuid';
 import { PortoneService } from './portone.service';
+import { Wallet } from 'xrpl';
 
 @Injectable()
 export class PaymentService {
@@ -64,6 +69,34 @@ export class PaymentService {
       },
     });
 
-    await this.walletService.issueIOU(userId, data.amount, data.currency);
+    await this.issueIOU(userId, data.amount, data.currency);
+  }
+
+  private async issueIOU(userId: number, amount: number, currency: string) {
+    const savedWallet = await this.prisma.wallet.findUnique({
+      where: { userId: userId },
+      select: {
+        id: true,
+        seed: true,
+      },
+    });
+    if (!savedWallet) {
+      throw new NotFoundException('존재하지 않는 지갑입니다.');
+    }
+
+    const adminWallet = Wallet.fromSeed(process.env.ADMIN_SEED || '');
+    const userWallet = Wallet.fromSeed(savedWallet.seed);
+    await this.walletService.setTrust(
+      adminWallet.address,
+      userWallet,
+      currency,
+    );
+    await this.walletService.sendIOU(
+      adminWallet.address,
+      adminWallet,
+      userWallet.address,
+      currency,
+      amount,
+    );
   }
 }
