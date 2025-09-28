@@ -1,9 +1,18 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Transactional } from 'src/common/decorator/transaction.decorator';
+import { TRUST_LIMIT } from 'src/common/util/constant';
+import { WalletService } from 'src/wallet/wallet.service';
+import { Wallet } from 'xrpl';
 import { PrismaService } from '../prisma/prisma.service';
+import { OutboxService } from 'src/outbox/outbox.service';
 
 @Injectable()
 export class UserService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly walletService: WalletService,
+    private readonly outboxSerice: OutboxService,
+  ) {}
 
   async getProfile(userId: number) {
     const user = await this.prisma.user.findUnique({
@@ -27,5 +36,45 @@ export class UserService {
 
     if (!user) throw new NotFoundException('해당 유저를 찾을 수 없습니다.');
     return user;
+  }
+
+  @Transactional()
+  async createTrustLine(currency: string, userId: number) {
+    const savedWallet = await this.prisma.wallet.findUnique({
+      where: { userId: userId },
+      select: {
+        seed: true,
+      },
+    });
+    if (!savedWallet) {
+      throw new NotFoundException('존재하지 않는 지갑입니다.');
+    }
+
+    const adminWallet = Wallet.fromSeed(process.env.IOU_ADMIN_SEED!);
+    const userWallet = Wallet.fromSeed(savedWallet.seed);
+    await this.prisma.trustLine.upsert({
+      where: {
+        address_currency_issuer: {
+          address: userWallet.address,
+          currency: currency,
+          issuer: adminWallet.address,
+        },
+      },
+      update: {},
+      create: {
+        currency: currency,
+        issuer: adminWallet.address,
+        address: userWallet.address,
+        userId: userId,
+        limit: TRUST_LIMIT,
+      },
+    });
+
+    const txBlob = await this.walletService.setTrust(
+      adminWallet.address,
+      userWallet,
+      currency,
+    );
+    await this.outboxSerice.create('TRUST_SET', txBlob);
   }
 }
