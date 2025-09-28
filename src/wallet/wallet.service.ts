@@ -1,7 +1,8 @@
 import {
+  BadRequestException,
   Injectable,
+  InternalServerErrorException,
   Logger,
-  NotFoundException,
   OnModuleDestroy,
   OnModuleInit,
 } from '@nestjs/common';
@@ -17,11 +18,11 @@ import {
 } from 'xrpl';
 import { encodeForSigning, encode } from 'ripple-binary-codec';
 import { sign as kpSign, deriveKeypair } from 'ripple-keypairs';
+import { TRUST_LIMIT } from 'src/common/util/constant';
 
 @Injectable()
 export class WalletService implements OnModuleInit, OnModuleDestroy {
   private client: Client;
-  private readonly TRUST_LIMIT = '999999999999999';
   private readonly logger = new Logger(WalletService.name);
 
   constructor(private prisma: PrismaService) {
@@ -71,6 +72,12 @@ export class WalletService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
+  async executeSignedTx(txBlob: any) {
+    const result = await this.client.submitAndWait(txBlob);
+    this.logger.log(result);
+    return result;
+  }
+
   async setTrust(issuerAddress: string, userWallet: Wallet, currency: string) {
     const tx: TrustSetTx = {
       TransactionType: 'TrustSet',
@@ -78,13 +85,12 @@ export class WalletService implements OnModuleInit, OnModuleDestroy {
       LimitAmount: {
         currency: currency,
         issuer: issuerAddress,
-        value: this.TRUST_LIMIT,
+        value: TRUST_LIMIT,
       },
     };
     const prepared = await this.client.autofill(tx);
     const signedTx = userWallet.sign(prepared);
-    const result = await this.client.submitAndWait(signedTx.tx_blob);
-    this.logger.log(result);
+    return signedTx.tx_blob;
   }
 
   async sendIOU(
