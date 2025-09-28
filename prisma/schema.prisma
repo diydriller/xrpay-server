@@ -12,9 +12,10 @@ model User {
   email      String    @unique
   password   String    
   name       String
-  wallet     Wallet?   @relation("UserWallet")   
-  walletId   Int?      @unique  
+  wallet     Wallet?  
+  role       Role      @default(USER)
   payments   Payment[]
+  trustLines TrustLine[]
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 }
@@ -25,10 +26,23 @@ model Wallet {
   publicKey  String
   privateKey String
   seed       String
-  user       User?     @relation("UserWallet", fields: [userId], references: [id])
-  userId     Int?      @unique
+  user       User      @relation(fields: [userId], references: [id])
+  userId     Int       @unique
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
+}
+
+model TrustLine {
+  id           Int       @id @default(autoincrement())
+  currency     String
+  balance      Int       @default(0)
+  issuer       String   
+  limit        String     
+  user         User      @relation(fields: [userId], references: [id])
+  userId       Int
+  address      String    @unique
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 }
 
 model Payment {
@@ -69,4 +83,9 @@ enum PaymentStatus {
   PENDING
   SUCCESS
   FAILED
+}
+
+enum Role {
+  USER
+  ADMIN
 }
