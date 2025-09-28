@@ -113,8 +113,7 @@ export class WalletService implements OnModuleInit, OnModuleDestroy {
 
     const prepared = await this.client.autofill(tx);
     const signedTx = senderWallet.sign(prepared);
-    const result = await this.client.submitAndWait(signedTx.tx_blob);
-    this.logger.log(result);
+    return signedTx.tx_blob;
   }
 
   async createIOUEscrow(
