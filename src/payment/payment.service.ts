@@ -8,6 +8,8 @@ import { WalletService } from 'src/wallet/wallet.service';
 import { v4 as uuid } from 'uuid';
 import { PortoneService } from './portone.service';
 import { Wallet } from 'xrpl';
+import { Transactional } from 'src/common/decorator/transaction.decorator';
+import { OutboxService } from 'src/outbox/outbox.service';
 
 @Injectable()
 export class PaymentService {
@@ -15,6 +17,7 @@ export class PaymentService {
     private prisma: PrismaService,
     private walletService: WalletService,
     private portoneService: PortoneService,
+    private outboxService: OutboxService,
   ) {}
 
   encryptedApiSecretKey =
@@ -41,6 +44,7 @@ export class PaymentService {
     };
   }
 
+  @Transactional()
   async confirmPayment(
     paymentKey: string,
     orderId: string,
@@ -48,10 +52,10 @@ export class PaymentService {
     currency: string,
     userId: number,
   ) {
-    const existingPayment = await this.prisma.payment.findUnique({
+    const savedPayment = await this.prisma.payment.findUnique({
       where: { orderId: orderId },
     });
-    if (!existingPayment) {
+    if (!savedPayment) {
       throw new BadRequestException('존재하지 않는 주문입니다.');
     }
 
@@ -78,25 +82,32 @@ export class PaymentService {
       select: {
         id: true,
         seed: true,
+        address: true,
       },
     });
     if (!savedWallet) {
       throw new NotFoundException('존재하지 않는 지갑입니다.');
     }
 
-    const adminWallet = Wallet.fromSeed(process.env.ADMIN_SEED || '');
+    const adminWallet = Wallet.fromSeed(process.env.IOU_ADMIN_SEED!);
     const userWallet = Wallet.fromSeed(savedWallet.seed);
-    await this.walletService.setTrust(
-      adminWallet.address,
-      userWallet,
-      currency,
-    );
-    await this.walletService.sendIOU(
+
+    const savedTrustLine = await this.prisma.trustLine.findUnique({
+      address: savedWallet.address,
+      currency: currency,
+      issuer: adminWallet.address,
+    });
+    if (!savedTrustLine) {
+      throw new NotFoundException('trustline이 존재하지 않습니다.');
+    }
+
+    const txBlob = await this.walletService.sendIOU(
       adminWallet.address,
       adminWallet,
       userWallet.address,
       currency,
       amount,
     );
+    await this.outboxService.create('PAYMENT_IOU', txBlob);
   }
 }
