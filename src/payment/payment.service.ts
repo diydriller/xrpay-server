@@ -80,9 +80,7 @@ export class PaymentService {
     const savedWallet = await this.prisma.wallet.findUnique({
       where: { userId: userId },
       select: {
-        id: true,
         seed: true,
-        address: true,
       },
     });
     if (!savedWallet) {
@@ -93,9 +91,13 @@ export class PaymentService {
     const userWallet = Wallet.fromSeed(savedWallet.seed);
 
     const savedTrustLine = await this.prisma.trustLine.findUnique({
-      address: savedWallet.address,
-      currency: currency,
-      issuer: adminWallet.address,
+      where: {
+        address_currency_issuer: {
+          address: userWallet.address,
+          currency: currency,
+          issuer: adminWallet.address,
+        },
+      },
     });
     if (!savedTrustLine) {
       throw new NotFoundException('trustline이 존재하지 않습니다.');

@@ -148,9 +148,10 @@ export class WalletService implements OnModuleInit, OnModuleDestroy {
     const signature = kpSign(signingData, privateKey);
     const signedTx = { ...toSign, TxnSignature: signature };
     const tx_blob = encode(signedTx);
-    const result = await this.client.submitAndWait(tx_blob);
-    this.logger.log(result);
-    return prepared.Sequence;
+    return {
+      sequence: prepared.Sequence,
+      txBlob: tx_blob,
+    };
   }
 
   async finishIOUEscrow(
@@ -167,7 +168,6 @@ export class WalletService implements OnModuleInit, OnModuleDestroy {
 
     const prepared = await this.client.autofill(tx);
     const signed = receiverWallet.sign(prepared);
-    const result = await this.client.submitAndWait(signed.tx_blob);
-    this.logger.log(result);
+    return signed.tx_blob;
   }
 }

@@ -4,41 +4,135 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { WalletService } from 'src/wallet/wallet.service';
 import { Wallet } from 'xrpl';
 import { v4 as uuid } from 'uuid';
+import { Transactional } from 'src/common/decorator/transaction.decorator';
+import { OutboxService } from 'src/outbox/outbox.service';
 
 @Injectable()
 export class EscrowService {
   constructor(
-    private prisma: PrismaService,
-    private walletService: WalletService,
+    private readonly prisma: PrismaService,
+    private readonly walletService: WalletService,
+    private readonly outboxService: OutboxService,
   ) {}
 
+  @Transactional()
   async registerIOUEscrow(
     amount: number,
     currency: string,
     receiverAddress: string,
     userId: number,
   ) {
-    const escrowId = await this.createIOUEscrow(
-      userId,
-      receiverAddress,
-      amount,
-      currency,
-    );
+    const savedWallet = await this.prisma.wallet.findUnique({
+      where: { userId: userId },
+      select: {
+        seed: true,
+      },
+    });
+    if (!savedWallet) {
+      throw new NotFoundException('존재하지 않는 지갑입니다.');
+    }
 
+    const adminWallet = Wallet.fromSeed(process.env.IOU_ADMIN_SEED!);
+    const senderWallet = Wallet.fromSeed(savedWallet.seed);
+
+    const savedTrustLine = await this.prisma.trustLine.findUnique({
+      where: {
+        address_currency_issuer: {
+          address: senderWallet.address,
+          currency: currency,
+          issuer: adminWallet.address,
+        },
+      },
+    });
+    if (!savedTrustLine) {
+      throw new NotFoundException('trustline이 존재하지 않습니다.');
+    }
+
+    const finishAfter = toRippleTime(new Date(Date.now() + 10_000));
+    const cancelAfter = toRippleTime(new Date(Date.now() + 150_000));
+    const { txBlob, sequence } = await this.walletService.createIOUEscrow(
+      adminWallet.address,
+      senderWallet,
+      receiverAddress,
+      currency,
+      amount,
+      finishAfter,
+      cancelAfter,
+    );
+    const escrowId = uuid();
+    await this.prisma.iOUEscrow.create({
+      data: {
+        escrowId: escrowId,
+        senderAddress: senderWallet.address,
+        receiverAddress: receiverAddress,
+        offerSequence: sequence,
+        amount: amount,
+        currency: currency,
+        status: 'PENDING',
+        finishAfter: fromRippleTime(finishAfter),
+        cancelAfter: fromRippleTime(cancelAfter),
+      },
+    });
+
+    await this.outboxService.create('CREATE_ESCROW', txBlob);
     return {
       escrowId: escrowId,
     };
   }
 
+  @Transactional()
   async settleIOUEscrow(escrowId: string, userId: number) {
-    await this.finishIOUEscrow(userId, escrowId);
+    const savedWallet = await this.prisma.wallet.findUnique({
+      where: { userId: userId },
+      select: {
+        seed: true,
+      },
+    });
+    if (!savedWallet) {
+      throw new NotFoundException('존재하지 않는 지갑입니다.');
+    }
+
+    const adminWallet = Wallet.fromSeed(process.env.IOU_ADMIN_SEED!);
+    const userWallet = Wallet.fromSeed(savedWallet.seed);
+
+    const savedIOUEscrow = await this.prisma.iOUEscrow.findUnique({
+      where: { escrowId: escrowId },
+    });
+    if (!savedIOUEscrow) {
+      throw new NotFoundException('존재 하지 않는 에스크로우입니다.');
+    }
+
+    const savedTrustLine = await this.prisma.trustLine.findUnique({
+      where: {
+        address_currency_issuer: {
+          address: userWallet.address,
+          currency: savedIOUEscrow.currency,
+          issuer: adminWallet.address,
+        },
+      },
+    });
+    if (!savedTrustLine) {
+      throw new NotFoundException('trustline이 존재하지 않습니다.');
+    }
+
+    const txBlob = await this.walletService.finishIOUEscrow(
+      savedIOUEscrow.senderAddress,
+      userWallet,
+      savedIOUEscrow.offerSequence!,
+    );
+    await this.prisma.iOUEscrow.update({
+      where: { escrowId: escrowId },
+      data: {
+        status: 'FINISHED',
+      },
+    });
+    await this.outboxService.create('ESCROW_FINISH', txBlob);
   }
 
   async getIOUEscrow(page: number, limit: number, userId: number) {
     const savedWallet = await this.prisma.wallet.findUnique({
       where: { userId: userId },
       select: {
-        id: true,
         address: true,
       },
     });
@@ -67,90 +161,5 @@ export class EscrowService {
       cancelAfter: iouEscrow.cancelAfter,
     }));
     return result;
-  }
-
-  private async createIOUEscrow(
-    userId: number,
-    address: string,
-    amount: number,
-    currency: string,
-  ) {
-    const savedWallet = await this.prisma.wallet.findUnique({
-      where: { userId: userId },
-      select: {
-        id: true,
-        seed: true,
-        address: true,
-      },
-    });
-    if (!savedWallet) {
-      throw new NotFoundException('존재하지 않는 지갑입니다.');
-    }
-
-    const adminWallet = Wallet.fromSeed(process.env.ADMIN_SEED || '');
-    const userWallet = Wallet.fromSeed(savedWallet.seed);
-    const finishAfter = toRippleTime(new Date(Date.now() + 10_000));
-    const cancelAfter = toRippleTime(new Date(Date.now() + 150_000));
-    const offerSequence = await this.walletService.createIOUEscrow(
-      adminWallet.address,
-      userWallet,
-      address,
-      currency,
-      amount,
-      finishAfter,
-      cancelAfter,
-    );
-
-    const escrowId = uuid();
-    await this.prisma.iOUEscrow.create({
-      data: {
-        escrowId: escrowId,
-        senderAddress: savedWallet.address,
-        receiverAddress: address,
-        offerSequence: offerSequence,
-        amount: amount,
-        currency: currency,
-        status: 'PENDING',
-        finishAfter: fromRippleTime(finishAfter),
-        cancelAfter: fromRippleTime(cancelAfter),
-      },
-    });
-    return escrowId;
-  }
-
-  private async finishIOUEscrow(userId: number, escrowId: string) {
-    const savedWallet = await this.prisma.wallet.findUnique({
-      where: { userId: userId },
-      select: {
-        id: true,
-        seed: true,
-        address: true,
-      },
-    });
-    if (!savedWallet) {
-      throw new NotFoundException('존재하지 않는 지갑입니다.');
-    }
-
-    const userWallet = Wallet.fromSeed(savedWallet.seed);
-
-    const existingIOUEscrow = await this.prisma.iOUEscrow.findUnique({
-      where: { escrowId: escrowId },
-    });
-    if (!existingIOUEscrow) {
-      throw new NotFoundException('존재 하지 않는 에스크로우입니다.');
-    }
-
-    await this.walletService.finishIOUEscrow(
-      existingIOUEscrow.senderAddress,
-      userWallet,
-      existingIOUEscrow.offerSequence!,
-    );
-
-    await this.prisma.iOUEscrow.update({
-      where: { escrowId: escrowId },
-      data: {
-        status: 'FINISHED',
-      },
-    });
   }
 }
