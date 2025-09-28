@@ -5,6 +5,8 @@ import { WalletModule } from './wallet/wallet.module';
 import { UserModule } from './user/user.module';
 import { PaymentModule } from './payment/payment.module';
 import { EscrowModule } from './escrow/escrow.module';
+import { ScheduleModule } from '@nestjs/schedule';
+import { OutboxModule } from './outbox/outbox.module';
 
 @Module({
   imports: [
@@ -14,6 +16,8 @@ import { EscrowModule } from './escrow/escrow.module';
     UserModule,
     PaymentModule,
     EscrowModule,
+    OutboxModule,
+    ScheduleModule.forRoot(),
   ],
 })
 export class AppModule {}
