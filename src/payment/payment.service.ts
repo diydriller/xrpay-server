@@ -80,6 +80,7 @@ export class PaymentService {
     const savedWallet = await this.prisma.wallet.findUnique({
       where: { userId: userId },
       select: {
+        id: true,
         seed: true,
       },
     });
@@ -110,6 +111,11 @@ export class PaymentService {
       currency,
       amount,
     );
-    await this.outboxService.create('PAYMENT_IOU', txBlob, userWallet.address);
+    await this.outboxService.create(
+      'PAYMENT_IOU',
+      txBlob,
+      userWallet.address,
+      savedWallet.id,
+    );
   }
 }

@@ -23,6 +23,7 @@ export class ExchangeService {
     const savedWallet = await this.prisma.wallet.findUnique({
       where: { userId: userId },
       select: {
+        id: true,
         seed: true,
       },
     });
@@ -63,7 +64,12 @@ export class ExchangeService {
       adminWallet.address,
       userWallet,
     );
-    await this.outboxService.create('SWAP_AMM', txBlob, userWallet.address);
+    await this.outboxService.create(
+      'SWAP_AMM',
+      txBlob,
+      userWallet.address,
+      savedWallet.id,
+    );
   }
 
   async handleSwapResult(result: any, address: string) {

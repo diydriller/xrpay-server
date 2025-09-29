@@ -22,18 +22,29 @@ export class EscrowService {
     receiverAddress: string,
     userId: number,
   ) {
-    const savedWallet = await this.prisma.wallet.findUnique({
+    const savedSenderWallet = await this.prisma.wallet.findUnique({
       where: { userId: userId },
       select: {
+        id: true,
         seed: true,
       },
     });
-    if (!savedWallet) {
+    if (!savedSenderWallet) {
+      throw new NotFoundException('존재하지 않는 지갑입니다.');
+    }
+    const savedReceiverWallet = await this.prisma.wallet.findUnique({
+      where: { address: receiverAddress },
+      select: {
+        id: true,
+        seed: true,
+      },
+    });
+    if (!savedReceiverWallet) {
       throw new NotFoundException('존재하지 않는 지갑입니다.');
     }
 
     const adminWallet = Wallet.fromSeed(process.env.IOU_ADMIN_SEED!);
-    const senderWallet = Wallet.fromSeed(savedWallet.seed);
+    const senderWallet = Wallet.fromSeed(savedSenderWallet.seed);
 
     const savedTrustLine = await this.prisma.trustLine.findUnique({
       where: {
@@ -63,7 +74,9 @@ export class EscrowService {
     await this.prisma.iOUEscrow.create({
       data: {
         escrowId: escrowId,
+        senderWalletId: savedSenderWallet.id,
         senderAddress: senderWallet.address,
+        receiverWalletId: savedReceiverWallet.id,
         receiverAddress: receiverAddress,
         offerSequence: sequence,
         amount: amount,
@@ -78,6 +91,7 @@ export class EscrowService {
       'CREATE_ESCROW',
       txBlob,
       senderWallet.address,
+      savedSenderWallet.id,
     );
     return {
       escrowId: escrowId,
@@ -86,18 +100,19 @@ export class EscrowService {
 
   @Transactional()
   async settleIOUEscrow(escrowId: string, userId: number) {
-    const savedWallet = await this.prisma.wallet.findUnique({
+    const savedReceiverWallet = await this.prisma.wallet.findUnique({
       where: { userId: userId },
       select: {
+        id: true,
         seed: true,
       },
     });
-    if (!savedWallet) {
+    if (!savedReceiverWallet) {
       throw new NotFoundException('존재하지 않는 지갑입니다.');
     }
 
     const adminWallet = Wallet.fromSeed(process.env.IOU_ADMIN_SEED!);
-    const userWallet = Wallet.fromSeed(savedWallet.seed);
+    const receiverWallet = Wallet.fromSeed(savedReceiverWallet.seed);
 
     const savedIOUEscrow = await this.prisma.iOUEscrow.findUnique({
       where: { escrowId: escrowId },
@@ -109,7 +124,7 @@ export class EscrowService {
     const savedTrustLine = await this.prisma.trustLine.findUnique({
       where: {
         address_currency_issuer: {
-          address: userWallet.address,
+          address: receiverWallet.address,
           currency: savedIOUEscrow.currency,
           issuer: adminWallet.address,
         },
@@ -121,7 +136,7 @@ export class EscrowService {
 
     const txBlob = await this.walletService.finishIOUEscrow(
       savedIOUEscrow.senderAddress,
-      userWallet,
+      receiverWallet,
       savedIOUEscrow.offerSequence!,
     );
     await this.prisma.iOUEscrow.update({
@@ -133,7 +148,8 @@ export class EscrowService {
     await this.outboxService.create(
       'ESCROW_FINISH',
       txBlob,
-      userWallet.address,
+      receiverWallet.address,
+      savedReceiverWallet.id,
     );
   }
 
