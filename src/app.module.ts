@@ -5,6 +5,7 @@ import { WalletModule } from './wallet/wallet.module';
 import { UserModule } from './user/user.module';
 import { PaymentModule } from './payment/payment.module';
 import { EscrowModule } from './escrow/escrow.module';
+import { ExchangeModule } from './exchange/exchange.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { OutboxModule } from './outbox/outbox.module';
 
@@ -16,6 +17,7 @@ import { OutboxModule } from './outbox/outbox.module';
     UserModule,
     PaymentModule,
     EscrowModule,
+    ExchangeModule,
     OutboxModule,
     ScheduleModule.forRoot(),
   ],
