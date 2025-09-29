@@ -8,6 +8,8 @@
     - 프로필 조회
 - `POST /users/trustline`
     - trustline 생성
+- `GET /users/balance`
+    - 잔고 조회
 
 ## 에스크로
 
