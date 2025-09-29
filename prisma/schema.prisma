@@ -15,32 +15,35 @@ model User {
   wallet       Wallet?  
   role         Role          @default(USER)
   payments     Payment[]
-  trustLines   TrustLine[]
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 }
 
 model Wallet {
-  id         Int       @id @default(autoincrement())
-  address    String    @unique
-  publicKey  String
-  privateKey String
-  seed       String
-  user       User      @relation(fields: [userId], references: [id])
-  userId     Int       @unique
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  id              Int           @id @default(autoincrement())
+  address         String        @unique
+  publicKey       String
+  privateKey      String
+  seed            String
+  user            User          @relation(fields: [userId], references: [id])
+  userId          Int           @unique
+  trustLines      TrustLine[]
+  escrowsSender   IOUEscrow[]   @relation("EscrowSender")
+  escrowsReceived IOUEscrow[]   @relation("EscrowReceiver")
+  exchangeLogs    ExchangeLog[]  
+  outboxes        Outbox[]
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 }
 
 model TrustLine {
   id           Int       @id @default(autoincrement())
   currency     String
-  balance      Int       @default(0)
   issuer       String   
   limit        String     
-  user         User      @relation(fields: [userId], references: [id])
-  userId       Int
-  address      String   
+  wallet       Wallet    @relation(fields: [walletId], references: [id])
+  walletId     Int
+  address      String
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
@@ -61,28 +64,34 @@ model Payment {
 }
 
 model IOUEscrow {
-  id               Int      @id @default(autoincrement())
-  escrowId         String   @unique
-  offerSequence    Int?       
+  id               Int        @id @default(autoincrement())
+  escrowId         String     @unique
+  offerSequence    Int?    
+  senderWallet     Wallet     @relation("EscrowSender", fields: [senderWalletId], references: [id])   
+  senderWalletId   Int
   senderAddress    String
+  receiverWallet   Wallet     @relation("EscrowReceiver", fields: [receiverWalletId], references: [id])
+  receiverWalletId Int
   receiverAddress  String
   amount           Int
   currency         String
   status           EscrowStatus
   finishAfter      DateTime
   cancelAfter      DateTime?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
 }
 
 model ExchangeLog {
-  id          Int      @id @default(autoincrement())
+  id          Int        @id @default(autoincrement())
+  wallet      Wallet?    @relation(fields: [walletId], references: [id])
+  walletId    Int?
   address     String
   txHash      String   
   currency    String  
   issuer      String   
   delta       Float    
-  createdAt   DateTime @default(now())
+  createdAt   DateTime   @default(now())
 
   @@unique([txHash, address, currency, issuer])
 }
@@ -91,6 +100,8 @@ model Outbox {
   id         Int           @id @default(autoincrement())
   type       String
   payload    Json    
+  wallet     Wallet?       @relation(fields: [walletId], references: [id])
+  walletId   Int?
   address    String
   status     OutboxStatus  @default(PENDING)
   retryCount Int           @default(0)
