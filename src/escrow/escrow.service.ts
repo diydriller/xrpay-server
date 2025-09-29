@@ -74,7 +74,11 @@ export class EscrowService {
       },
     });
 
-    await this.outboxService.create('CREATE_ESCROW', txBlob);
+    await this.outboxService.create(
+      'CREATE_ESCROW',
+      txBlob,
+      senderWallet.address,
+    );
     return {
       escrowId: escrowId,
     };
@@ -126,7 +130,11 @@ export class EscrowService {
         status: 'FINISHED',
       },
     });
-    await this.outboxService.create('ESCROW_FINISH', txBlob);
+    await this.outboxService.create(
+      'ESCROW_FINISH',
+      txBlob,
+      userWallet.address,
+    );
   }
 
   async getIOUEscrow(page: number, limit: number, userId: number) {

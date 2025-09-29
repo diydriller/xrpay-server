@@ -5,11 +5,12 @@ import { PrismaService } from '../prisma/prisma.service';
 export class OutboxService {
   constructor(private prisma: PrismaService) {}
 
-  async create(type: string, payload: any) {
+  async create(type: string, payload: any, address: string) {
     return this.prisma.outbox.create({
       data: {
         type,
         payload,
+        address,
       },
     });
   }
@@ -26,6 +27,7 @@ export class OutboxService {
       where: { id },
       data: {
         status: 'FAILED',
+        retryCount: { increment: 1 },
       },
     });
   }

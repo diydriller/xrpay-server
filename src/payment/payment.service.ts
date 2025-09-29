@@ -110,6 +110,6 @@ export class PaymentService {
       currency,
       amount,
     );
-    await this.outboxService.create('PAYMENT_IOU', txBlob);
+    await this.outboxService.create('PAYMENT_IOU', txBlob, userWallet.address);
   }
 }

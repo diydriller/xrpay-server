@@ -75,6 +75,6 @@ export class UserService {
       userWallet,
       currency,
     );
-    await this.outboxSerice.create('TRUST_SET', txBlob);
+    await this.outboxSerice.create('TRUST_SET', txBlob, userWallet.address);
   }
 }
