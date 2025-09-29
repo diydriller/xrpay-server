@@ -5,11 +5,12 @@ import { PrismaService } from '../prisma/prisma.service';
 export class OutboxService {
   constructor(private prisma: PrismaService) {}
 
-  async create(type: string, payload: any, address: string) {
+  async create(type: string, payload: any, address: string, walletId: number) {
     return this.prisma.outbox.create({
       data: {
         type,
         payload,
+        walletId,
         address,
       },
     });

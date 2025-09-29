@@ -43,6 +43,7 @@ export class UserService {
     const savedWallet = await this.prisma.wallet.findUnique({
       where: { userId: userId },
       select: {
+        id: true,
         seed: true,
       },
     });
@@ -65,7 +66,7 @@ export class UserService {
         currency: currency,
         issuer: adminWallet.address,
         address: userWallet.address,
-        userId: userId,
+        walletId: savedWallet.id,
         limit: TRUST_LIMIT,
       },
     });
@@ -75,6 +76,11 @@ export class UserService {
       userWallet,
       currency,
     );
-    await this.outboxSerice.create('TRUST_SET', txBlob, userWallet.address);
+    await this.outboxSerice.create(
+      'TRUST_SET',
+      txBlob,
+      userWallet.address,
+      savedWallet.id,
+    );
   }
 }
