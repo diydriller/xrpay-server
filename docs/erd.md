@@ -26,7 +26,6 @@ erDiagram
     TrustLine {
         id number "아이디"    
         currency string "IOU 통화"
-        balance number "IOU 잔고"
         issuer string "IOU 발행자"   
         limit string "IOU 발행 한계"     
         walletId number "지갑 아이디"
@@ -65,7 +64,9 @@ erDiagram
         escrowId number "escrow 아이디"
         offerSequence number "offer sequence"       
         senderWalletId number "송신자 지갑 아이디"
+        senderAddress string "송신자 지갑 주소"
         receiverWalletId number "수신자 지갑 아이디"
+        receiverAddress string "수신자 지갑 주소"
         amount number "escrow 금액"
         currency string "escrow 통화"
         status EscrowStatus "escrow 상태"
@@ -83,6 +84,7 @@ erDiagram
 	ExchangeLog {
         id number "아이디"
         walletId number "지갑 아이디"
+        address string "지갑 주소"
         txHash string "트랜잭션 hash"   
         currency string "IOU 통화"  
         issuer string "IOU 발행자"   
@@ -101,6 +103,7 @@ erDiagram
         type string "type"
         payload string "payload"    
         walletId number "지갑 아이디"
+        address string "지갑 주소"
         status OutboxStatus "outbox 상태"
         retryCount number "재시도 횟수"
         createdAt dateTime "생성시간"

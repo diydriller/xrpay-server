@@ -22,5 +22,7 @@
 
 - `POST /amm/swap`
     - 환전하기
+- `GET /amm/swap`
+    - 환전 내역 조회
 - `GET /amm/swap/info`
     - 환율 정보 조회
