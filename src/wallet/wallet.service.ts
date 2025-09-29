@@ -211,4 +211,15 @@ export class WalletService implements OnModuleInit, OnModuleDestroy {
     };
     return await this.client.request(req as any);
   }
+
+  async getXrpBalance(address: string) {
+    return await this.client.getXrpBalance(address);
+  }
+
+  async getAccountLine(address: string) {
+    return await this.client.request({
+      command: 'account_lines',
+      account: address,
+    });
+  }
 }

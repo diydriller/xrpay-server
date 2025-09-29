@@ -83,4 +83,36 @@ export class UserService {
       savedWallet.id,
     );
   }
+
+  async getBalance(userId: number) {
+    const savedWallet = await this.prisma.wallet.findUnique({
+      where: { userId: userId },
+      select: {
+        address: true,
+      },
+    });
+    if (!savedWallet) {
+      throw new NotFoundException('존재하지 않는 지갑입니다.');
+    }
+
+    const xrpBalance = await this.walletService.getXrpBalance(
+      savedWallet.address,
+    );
+    const accountLine = await this.walletService.getAccountLine(
+      savedWallet.address,
+    );
+    const processedLine = accountLine.result.lines.map((line: any) => {
+      return {
+        issuer: line.account,
+        currency: line.currency,
+        balance: line.balance,
+        limit: line.limit,
+      };
+    });
+
+    return {
+      xrp: xrpBalance,
+      token: processedLine,
+    };
+  }
 }

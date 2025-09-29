@@ -18,4 +18,10 @@ export class UserController {
   async createTrustLine(@Body() dto: CreateTrustLineDto, @Req() req) {
     return this.userService.createTrustLine(dto.currency, req.user.userId);
   }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Get('balance')
+  async getBalance(@Req() req) {
+    return this.userService.getBalance(req.user.userId);
+  }
 }
