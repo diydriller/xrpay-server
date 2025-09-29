@@ -114,4 +114,33 @@ export class ExchangeService {
       asset2Currency,
     );
   }
+
+  async getSwapAmm(page: number, limit: number, userId: any) {
+    const savedWallet = await this.prisma.wallet.findUnique({
+      where: { userId: userId },
+      select: {
+        address: true,
+      },
+    });
+    if (!savedWallet) {
+      throw new NotFoundException('존재하지 않는 지갑입니다.');
+    }
+
+    const exchangeLogs = await this.prisma.exchangeLog.findMany({
+      where: {
+        address: savedWallet.address,
+      },
+      orderBy: { createdAt: 'desc' },
+      skip: Math.max(0, (page - 1) * limit),
+      take: Math.max(1, limit),
+    });
+
+    const result = exchangeLogs.map((exchangeLog) => ({
+      delta: exchangeLog.delta,
+      currency: exchangeLog.currency,
+      issuer: exchangeLog.issuer,
+      createdAt: exchangeLog.createdAt,
+    }));
+    return result;
+  }
 }
