@@ -1,7 +1,5 @@
 import {
-  BadRequestException,
   Injectable,
-  InternalServerErrorException,
   Logger,
   OnModuleDestroy,
   OnModuleInit,
@@ -169,5 +167,48 @@ export class WalletService implements OnModuleInit, OnModuleDestroy {
     const prepared = await this.client.autofill(tx);
     const signed = receiverWallet.sign(prepared);
     return signed.tx_blob;
+  }
+
+  async swapAMM(
+    payAssetCurrency: string,
+    payAssetAmount: number,
+    getAssetCurrency: string,
+    getAssetAmount: number,
+    issuerAddress: string,
+    userWallet: Wallet,
+  ) {
+    const tx: Transaction = {
+      TransactionType: 'Payment',
+      Account: userWallet.address,
+      Destination: userWallet.address,
+      Amount: {
+        currency: getAssetCurrency,
+        issuer: issuerAddress,
+        value: getAssetAmount.toString(),
+      },
+      SendMax: {
+        currency: payAssetCurrency,
+        issuer: issuerAddress,
+        value: payAssetAmount.toString(),
+      },
+      Flags: 0x00020000,
+    };
+
+    const prepared = await this.client.autofill(tx);
+    const signed = userWallet.sign(prepared);
+    return signed.tx_blob;
+  }
+
+  async getAmmInfo(
+    issuerAddress: string,
+    asset1Currency: string,
+    asset2Currency: string,
+  ) {
+    const req: any = {
+      command: 'amm_info',
+      asset: { currency: asset1Currency, issuer: issuerAddress },
+      asset2: { currency: asset2Currency, issuer: issuerAddress },
+    };
+    return await this.client.request(req as any);
   }
 }
