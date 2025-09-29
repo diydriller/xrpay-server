@@ -38,4 +38,14 @@ export class ExchangeController {
     );
     return parseAmmInfo(result);
   }
+
+  @Get('amm/swap')
+  @UseGuards(AuthGuard('jwt'))
+  async getSwapAmm(
+    @Query('page') page = 1,
+    @Query('limit') limit = 10,
+    @Req() req,
+  ) {
+    return await this.exchangeService.getSwapAmm(page, limit, req.user.userId);
+  }
 }
