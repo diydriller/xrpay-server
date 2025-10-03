@@ -6,7 +6,7 @@ export class OutboxService {
   constructor(private prisma: PrismaService) {}
 
   async create(type: string, payload: any, address: string, walletId: number) {
-    return this.prisma.outbox.create({
+    return this.prisma.tx.outbox.create({
       data: {
         type,
         payload,

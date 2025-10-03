@@ -10,6 +10,6 @@ import { ExchangeModule } from 'src/exchange/exchange.module';
   imports: [PrismaModule, WalletModule, forwardRef(() => ExchangeModule)],
   controllers: [],
   providers: [OutboxService, OutboxScheduler, OutboxWorker],
-  exports: [OutboxService],
+  exports: [OutboxService, OutboxWorker],
 })
 export class OutboxModule {}
