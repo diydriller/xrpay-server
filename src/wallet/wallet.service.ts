@@ -35,6 +35,10 @@ export class WalletService implements OnModuleInit, OnModuleDestroy {
     await this.client.disconnect();
   }
 
+  createFromSeed(seed: string): Wallet {
+    return Wallet.fromSeed(seed);
+  }
+
   async createWallet(userId: number) {
     const wallet = XrplWallet.generate();
     await this.client.fundWallet(wallet);
@@ -45,7 +49,7 @@ export class WalletService implements OnModuleInit, OnModuleDestroy {
         publicKey: wallet.publicKey,
         privateKey: wallet.privateKey,
         userId,
-        seed: wallet.seed || '',
+        seed: wallet.seed!,
       },
     });
 
